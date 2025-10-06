@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Chat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="entry-page">
+    <div class="join-container">
+        <header>
+            <h1><i class="fas fa-comments"></i> Real-Time Chat</h1>
+        </header>
+        <main class="join-main">
+            <form id="join-form">
+                <div class="form-control">
+                    <label for="username">Username</label>
+                    <input type="text" name="username" id="username" placeholder="Enter username..." required>
+                </div>
+                <div class="form-control">
+                    <label for="room">Select Room</label>
+                    <select name="room" id="room">
+                        <option value="General">General Chat</option>
+                        <option value="Tech">Tech Talk</option>
+                        <option value="Gaming">Gaming Hub</option>
+                        <option value="Fun">Random Fun</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Join Chat</button>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        document.getElementById('join-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const room = document.getElementById('room').value;
+
+            if (username) {
+                
+                localStorage.setItem('chat_username', username);
+                localStorage.setItem('chat_room', room);
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>

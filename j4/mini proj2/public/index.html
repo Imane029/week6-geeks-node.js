@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Chat Room</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <header class="chat-header">
+            <h1><i class="fas fa-comments"></i> Chat App</h1>
+            <h2 id="room-name"></h2>
+        </header>
+        <main class="chat-main">
+            <div class="chat-sidebar">
+                <h3><i class="fas fa-users"></i> Users</h3>
+                <ul id="users">
+                    </ul>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                </div>
+        </main>
+        <div class="chat-form-container">
+            <form id="chat-form">
+                <input id="msg" type="text" placeholder="Enter Message" required autocomplete="off">
+                <button class="btn"><i class="fas fa-paper-plane"></i> Send</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const chatForm = document.getElementById('chat-form');
+        const chatMessages = document.getElementById('chat-messages');
+        const userList = document.getElementById('users');
+        const roomNameDisplay = document.getElementById('room-name');
+        
+        
+        const username = localStorage.getItem('chat_username');
+        const room = localStorage.getItem('chat_room');
+
+        if (!username || !room) {
+           
+            window.location.href = 'entry.html';
+        }
+
+        
+        roomNameDisplay.innerText = room;
+
+       
+        socket.emit('joinRoom', { username, room });
+
+        
+        socket.on('message', (message) => {
+            outputMessage(message);
+            
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+           
+            if (!message.isSelf && !message.isSystem) {
+                document.title = '🔔 New Message! | Chat App';
+                setTimeout(() => {
+                    document.title = 'Real-Time Chat Room';
+                }, 3000);
+            }
+        });
+
+        
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const msgInput = document.getElementById('msg');
+            const msg = msgInput.value;
+
+           
+            socket.emit('chatMessage', msg);
+            
+            
+            outputMessage({
+                username: username,
+                text: msg,
+                timestamp: new Date().toLocaleTimeString(),
+                isSystem: false,
+                isSelf: true
+            });
+
+            
+            msgInput.value = '';
+            msgInput.focus();
+        });
+
+        
+        socket.on('roomUsers', (users) => {
+            userList.innerHTML = users.map(user => `<li>${user}</li>`).join('');
+        });
+
+        
+        function outputMessage(message) {
+            const div = document.createElement('div');
+            div.classList.add('message');
+            
+          
+            if (message.isSystem) {
+                div.classList.add('system-message');
+            } else if (message.isSelf) {
+                div.classList.add('self-message');
+            } else {
+                div.classList.add('other-message');
+            }
+
+            
+            div.innerHTML = `
+                <div class="meta">
+                    <span class="user-name">${message.username}</span>
+                    <span class="time-stamp">${message.timestamp}</span>
+                </div>
+                <div class="text">${message.text}</div>
+            `;
+            
+            chatMessages.appendChild(div);
+        }
+    </script>
+</body>
+</html>
