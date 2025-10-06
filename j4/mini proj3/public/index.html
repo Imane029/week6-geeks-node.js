@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture the Base | Jeu de Stratégie REST</title>
+    <style>
+        :root {
+            --board-size: 10;
+            --cell-size: 40px;
+            --color-bg-dark: #1e1e1e;
+            --color-bg-light: #2c2c2c;
+            --color-accent: #00bcd4;
+            --color-p1: #f44336;
+            --color-p2: #2196f3;
+            --color-obstacle: #5a5a5a;
+            --color-base: #ffeb3b;
+            --color-win: #4caf50;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-bg-dark);
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        .game-container {
+            display: grid;
+            grid-template-areas:
+                "board controls"
+                "status status";
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            padding: 20px;
+            background: var(--color-bg-light);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        @media (max-width: 800px) {
+            .game-container {
+                grid-template-areas:
+                    "board"
+                    "controls"
+                    "status";
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
+
+        .board-wrapper {
+            grid-area: board;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(var(--board-size), var(--cell-size));
+            grid-template-rows: repeat(var(--board-size), var(--cell-size));
+            border: 5px solid var(--color-accent);
+            box-shadow: 0 0 15px rgba(0, 188, 212, 0.5);
+        }
+        
+        @media (max-width: 600px) {
+            :root { --cell-size: 30px; }
+        }
+
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background-color: #383838;
+            border: 1px solid #4a4a4a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            transition: background-color 0.1s, transform 0.1s;
+        }
+
+        .base {
+            background-color: #4a4000;
+        }
+        .base::after {
+            content: '🏠';
+            font-size: 1.5rem;
+            position: absolute;
+            opacity: 0.5;
+        }
+
+        .player {
+            font-weight: bold;
+            border: 2px solid var(--color-base);
+            border-radius: 50%;
+            animation: pulse 1s infinite alternate;
+            z-index: 10;
+        }
+        .player-P1 { background-color: var(--color-p1); color: #fff; box-shadow: 0 0 8px var(--color-p1); }
+        .player-P2 { background-color: var(--color-p2); color: #fff; box-shadow: 0 0 8px var(--color-p2); }
+
+        .obstacle {
+            background-color: var(--color-obstacle);
+            color: #c9c9c9;
+            font-size: 1.5rem;
+            transform: rotate(45deg);
+        }
+
+        .controls-panel {
+            grid-area: controls;
+            padding: 15px;
+            background: #282828;
+            border-radius: 8px;
+        }
+
+        #status-display {
+            grid-area: status;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            font-size: 1rem;
+            border-left: 5px solid var(--color-accent);
+        }
+
+        #status-text {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .control-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            grid-template-areas: 
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .control-buttons button {
+            padding: 15px 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            background: #555;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .control-buttons button:hover:not(:disabled) {
+            background: var(--color-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 188, 212, 0.4);
+        }
+        
+        .control-buttons button:disabled {
+            background: #333;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .btn-up { grid-area: up; }
+        .btn-down { grid-area: down; }
+        .btn-left { grid-area: left; }
+        .btn-right { grid-area: right; }
+
+        .start-button, .player-select button {
+            width: 100%;
+            padding: 15px;
+            margin-top: 10px;
+            background-color: var(--color-win);
+            color: #1e1e1e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        .start-button:hover, .player-select button:hover {
+            background-color: #3c9340;
+        }
+
+        .player-select {
+            margin-bottom: 20px;
+            border-bottom: 1px dashed #555;
+            padding-bottom: 10px;
+        }
+        
+        .player-info h3 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+        }
+
+        .player-token-display {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: var(--color-accent);
+            word-break: break-all;
+            margin-top: 5px;
+        }
+
+        .highlight-turn {
+            border: 3px solid var(--color-base);
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 1; }
+            to { transform: scale(1.05); opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        
+        <div class="board-wrapper">
+            <div id="game-board">
+            </div>
+        </div>
+
+        <div class="controls-panel">
+            <h2>Configuration du Jeu</h2>
+            <button id="start-game-btn" class="start-button">DÉMARRER NOUVEAU JEU</button>
+            
+            <div id="setup-info" style="margin-top: 20px; font-size: 0.9rem;">
+                <p>ID du Jeu: <span id="game-id-display" class="player-token-display">N/A</span></p>
+                
+                <div class="player-select">
+                    <p style="margin-top: 10px;">Token du Joueur 1 (P1):</p>
+                    <span id="p1-token-display" class="player-token-display">N/A</span>
+                    <button id="select-p1-btn">Jouer en tant que P1</button>
+                </div>
+                
+                <div class="player-select">
+                    <p>Token du Joueur 2 (P2):</p>
+                    <span id="p2-token-display" class="player-token-display">N/A</span>
+                    <button id="select-p2-btn">Jouer en tant que P2</button>
+                </div>
+            </div>
+
+            <div id="current-player-info" class="player-info" style="margin-top: 20px;">
+                <h3>Votre Rôle: <span id="my-role" style="color: var(--color-base);">N/A</span></h3>
+                <p>Tour Actuel: <span id="current-turn">N/A</span></p>
+            </div>
+
+            <div class="control-buttons">
+                <button class="btn-up" data-direction="UP" disabled>▲ HAUT</button>
+                <button class="btn-left" data-direction="LEFT" disabled>◀ GAUCHE</button>
+                <button class="btn-right" data-direction="RIGHT" disabled>DROITE ▶</button>
+                <button class="btn-down" data-direction="DOWN" disabled>▼ BAS</button>
+            </div>
+        </div>
+
+        <div id="status-display">
+            Statut: <span id="status-text">Cliquez sur "DÉMARRER NOUVEAU JEU" pour commencer.</span>
+        </div>
+
+    </div>
+
+    <script>
+        let gameId = null;
+        let myToken = null;
+        let myPlayerId = null; 
+        const BOARD_SIZE = 10;
+        let pollingInterval = null; 
+
+        const DOM = {
+            board: document.getElementById('game-board'),
+            statusText: document.getElementById('status-text'),
+            startGameBtn: document.getElementById('start-game-btn'),
+            moveButtons: document.querySelectorAll('.control-buttons button[data-direction]'),
+            gameIdDisplay: document.getElementById('game-id-display'),
+            p1TokenDisplay: document.getElementById('p1-token-display'),
+            p2TokenDisplay: document.getElementById('p2-token-display'),
+            selectP1Btn: document.getElementById('select-p1-btn'),
+            selectP2Btn: document.getElementById('select-p2-btn'),
+            myRole: document.getElementById('my-role'),
+            currentTurn: document.getElementById('current-turn')
+        };
+
+        const API_BASE = '/api/game';
+
+        async function fetchJson(url, options = {}) {
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || `Erreur HTTP! Statut: ${response.status}`);
+                }
+                return data;
+            } catch (error) {
+                console.error("Échec de la requête API:", error.message);
+                DOM.statusText.textContent = `Erreur: ${error.message}`;
+                return null;
+            }
+        }
+
+        function createBoardDOM() {
+            DOM.board.innerHTML = '';
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.id = `cell-${x}-${y}`;
+
+                    if ((x === 0 && y === 0)) {
+                        cell.classList.add('base', 'base-P1');
+                    } else if (x === BOARD_SIZE - 1 && y === BOARD_SIZE - 1) {
+                        cell.classList.add('base', 'base-P2');
+                    }
+
+                    DOM.board.appendChild(cell);
+                }
+            }
+        }
+
+        function renderBoard(board, currentTurn) {
+            const isMyTurn = (myPlayerId === currentTurn);
+
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('player-P1', 'player-P2', 'obstacle', 'player', 'highlight-turn');
+                cell.textContent = '';
+            });
+
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    const cell = document.getElementById(`cell-${x}-${y}`);
+                    if (!cell) continue;
+
+                    const content = board[y][x];
+
+                    if (content === 'P1' || content === 'P2') {
+                        cell.classList.add('player', `player-${content}`);
+                        cell.textContent = content;
+                        
+                        if (content === currentTurn) {
+                            cell.classList.add('highlight-turn');
+                        }
+                    } else if (content === 'X') {
+                        cell.classList.add('obstacle');
+                        cell.textContent = 'X';
+                    }
+                }
+            }
+            
+            DOM.moveButtons.forEach(btn => {
+                btn.disabled = !(myPlayerId && isMyTurn);
+            });
+        }
+
+        async function startGame() {
+            DOM.startGameBtn.disabled = true;
+
+            const data = await fetchJson(`${API_BASE}/new`, { method: 'POST' });
+            if (data) {
+                gameId = data.gameId;
+                DOM.gameIdDisplay.textContent = gameId;
+                DOM.p1TokenDisplay.textContent = data.player1Token;
+                DOM.p2TokenDisplay.textContent = data.player2Token;
+                DOM.statusText.textContent = `Jeu ID ${gameId} créé. Sélectionnez votre rôle (P1 ou P2) pour rejoindre!`;
+                
+                myToken = null;
+                myPlayerId = null;
+                DOM.myRole.textContent = 'N/A';
+                DOM.currentTurn.textContent = 'N/A';
+                clearInterval(pollingInterval);
+                renderBoard(data.initialState.board, data.initialState.turn);
+
+                DOM.selectP1Btn.disabled = false;
+                DOM.selectP2Btn.disabled = false;
+                DOM.startGameBtn.textContent = 'REDÉMARRER LE JEU';
+            }
+            DOM.startGameBtn.disabled = false;
+        }
+
+        function selectRole(token, playerId) {
+            myToken = token;
+            myPlayerId = playerId;
+            DOM.myRole.textContent = playerId === 'P1' ? 'Joueur Un (P1)' : 'Joueur Deux (P2)';
+            DOM.selectP1Btn.disabled = true;
+            DOM.selectP2Btn.disabled = true;
+            DOM.statusText.textContent = `Rejoint en tant que ${playerId}. Démarrage du suivi...`;
+            
+            clearInterval(pollingInterval);
+            pollingInterval = setInterval(getGameState, 1500); 
+            getGameState();
+        }
+
+        async function getGameState() {
+            if (!gameId) return;
+
+            const state = await fetchJson(`${API_BASE}/${gameId}`);
+
+            if (state) {
+                renderBoard(state.board, state.turn);
+                DOM.currentTurn.textContent = state.turn;
+
+                let message = `C'est le tour de ${state.turn}. Votre rôle: ${myPlayerId || 'Spectateur'}.`;
+
+                if (state.status.includes('_WINS')) {
+                    clearInterval(pollingInterval);
+                    const winnerId = state.status.includes('P1') ? 'P1' : 'P2';
+                    const winnerName = winnerId === myPlayerId ? 'VOUS' : 'L\'ADVERSAIRE';
+                    
+                    DOM.statusText.style.color = 'var(--color-win)';
+                    DOM.statusText.textContent = `${winnerId} (${winnerName}) GAGNE! Partie terminée.`;
+                    DOM.moveButtons.forEach(btn => btn.disabled = true);
+                } else {
+                    DOM.statusText.style.color = '#fff';
+                    if (state.turn === myPlayerId) {
+                         DOM.statusText.textContent = "C'est VOTRE tour ! Faites un mouvement.";
+                    } else {
+                         DOM.statusText.textContent = `En attente du tour de ${state.turn}.`;
+                    }
+                }
+            }
+        }
+
+        async function sendMove(direction) {
+            if (!gameId || !myToken || !myPlayerId) {
+                DOM.statusText.textContent = "Erreur: Jeu non démarré ou rôle non sélectionné.";
+                return;
+            }
+
+            DOM.moveButtons.forEach(btn => btn.disabled = true);
+            DOM.statusText.textContent = `Tentative de mouvement vers ${direction}...`;
+
+            const result = await fetchJson(`${API_BASE}/${gameId}/move`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: myToken, direction })
+            });
+
+            if (result) {
+                getGameState();
+            } else {
+                if (DOM.currentTurn.textContent === myPlayerId) {
+                     DOM.moveButtons.forEach(btn => btn.disabled = false);
+                }
+            }
+        }
+
+        createBoardDOM();
+
+        DOM.startGameBtn.addEventListener('click', startGame);
+
+        DOM.selectP1Btn.addEventListener('click', () => {
+            if (DOM.p1TokenDisplay.textContent !== 'N/A') {
+                selectRole(DOM.p1TokenDisplay.textContent, 'P1');
+            }
+        });
+        DOM.selectP2Btn.addEventListener('click', () => {
+            if (DOM.p2TokenDisplay.textContent !== 'N/A') {
+                selectRole(DOM.p2TokenDisplay.textContent, 'P2');
+            }
+        });
+
+        DOM.moveButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const direction = btn.dataset.direction;
+                sendMove(direction);
+            });
+        });
+
+        DOM.selectP1Btn.disabled = true;
+        DOM.selectP2Btn.disabled = true;
+
+    </script>
+</body>
+</html>
